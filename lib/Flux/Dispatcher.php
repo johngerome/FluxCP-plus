@@ -17,7 +17,7 @@ class Flux_Dispatcher {
 	 * @var Flux_Dispatcher
 	 */
 	private static $dispatcher;
-	
+
 	/**
 	 * Default module.
 	 *
@@ -25,7 +25,7 @@ class Flux_Dispatcher {
 	 * @var string
 	 */
 	public $defaultModule;
-	
+
 	/**
 	 * Default action.
 	 *
@@ -33,7 +33,7 @@ class Flux_Dispatcher {
 	 * @var string
 	 */
 	public $defaultAction = 'index';
-	
+
 	/**
 	 * See Flux_Dispatcher::getInstance().
 	 *
@@ -41,9 +41,9 @@ class Flux_Dispatcher {
 	 */
 	private function __construct()
 	{
-		
+
 	}
-	
+
 	/**
 	 * Construct new dispatcher instance of one doesn't exist. But there can
 	 * only be a single instance of the dispatcher.
@@ -58,7 +58,7 @@ class Flux_Dispatcher {
 		}
 		return self::$dispatcher;
 	}
-	
+
 	/**
 	 * Dispatch current request to the correct action and render the view.
 	 *
@@ -68,6 +68,7 @@ class Flux_Dispatcher {
 	public function dispatch($options = array())
 	{
 		$config                    = new Flux_Config($options);
+		$isAjax              			 = $config->get('isAjax');
 		$basePath                  = $config->get('basePath');
 		$paramsArr                 = $config->get('params');
 		$modulePath                = $config->get('modulePath');
@@ -78,29 +79,29 @@ class Flux_Dispatcher {
 		$missingActionModuleAction = $config->get('missingActionModuleAction');
 		$missingViewModuleAction   = $config->get('missingViewModuleAction');
 		$useCleanUrls              = $config->get('useCleanUrls');
-		
+
 		if (!$defaultModule && $this->defaultModule) {
 			$defaultModule = $this->defaultModule;
 		}
 		if (!$defaultAction && $this->defaultAction) {
 			$defaultAction = $this->defaultAction;
 		}
-		
+
 		if (!$defaultModule) {
 			throw new Flux_Error('Please set the default module with $dispatcher->setDefaultModule()');
 		}
 		elseif (!$defaultAction) {
 			throw new Flux_Error('Please set the default action with $dispatcher->setDefaultAction()');
 		}
-		
+
 		if (!$paramsArr) {
 			$paramsArr = &$_REQUEST;
 		}
-		
+
 		// Provide easier access to parameters.
 		$params  = new Flux_Config($paramsArr);
 		$baseURI = Flux::config('BaseURI');
-		
+
 		if ($params->get('module')) {
 			$safetyArr  = array('..', '/', '\\');
 			$moduleName = str_replace($safetyArr, '', $params->get('module'));
@@ -123,7 +124,9 @@ class Flux_Dispatcher {
 			$moduleName = $defaultModule;
 			$actionName = $defaultAction;
 		}
-		
+
+		$isAjax = ($params->get('isAjax') === 'true') ? true : false;
+
 		// Authorization handling.
 		$auth = Flux_Authorization::getInstance();
 		if ($auth->actionAllowed($moduleName, $actionName) === false) {
@@ -136,12 +139,14 @@ class Flux_Dispatcher {
 				$actionName = $this->defaultAction;
 			}
 		}
-		
+
 		$params->set('module', $moduleName);
 		$params->set('action', $actionName);
-		
+		$params->set('isAjax', $isAjax);
+
 		$templateArray  = array(
 			'params'                    => $params,
+			'isAjax'										=> $isAjax,
 			'basePath'                  => $basePath,
 			'modulePath'                => $modulePath,
 			'moduleName'                => $moduleName,
@@ -157,7 +162,7 @@ class Flux_Dispatcher {
 		);
 		$templateConfig = new Flux_Config($templateArray);
 		$template       = new Flux_Template($templateConfig);
-		
+
 		// Default data available to all actions and views.
 		$data = array(
 			'auth'    => Flux_Authorization::getInstance(),
@@ -165,11 +170,11 @@ class Flux_Dispatcher {
 			'params'  => $params
 		);
 		$template->setDefaultData($data);
-		
+
 		// Render template! :D
 		$template->render();
 	}
-	
+
 	/**
 	 * This usually needs to be called after instanciating the dispatcher, as
 	 * it's very necessary to the dispatcher's failsafe functionality.
@@ -183,7 +188,7 @@ class Flux_Dispatcher {
 		$this->defaultModule = $module;
 		return $module;
 	}
-	
+
 	/**
 	 * (DEPRECATED) By default, 'index' is the default action for any module, but you may
 	 * override that by using this method.
@@ -197,7 +202,7 @@ class Flux_Dispatcher {
 		$this->defaultAction = $action;
 		return $action;
 	}
-	
+
 	/**
 	 * Redirect to login page if the user is not currently logged in.
 	 *
@@ -212,7 +217,7 @@ class Flux_Dispatcher {
 		if (!$message) {
 			$message = 'Please login to continue.';
 		}
-		
+
 		if (!$session->isLoggedIn()) {
 			if (Flux::config('UseCleanUrls')) {
 				$loginURL = sprintf('%s/%s/%s/?return_url=%s',
@@ -222,7 +227,7 @@ class Flux_Dispatcher {
 				$loginURL = sprintf('%s/?module=%s&action=%s&return_url=%s',
 					$baseURI, rawurlencode($loginModule), rawurlencode($loginAction), rawurlencode($_SERVER['REQUEST_URI']));
 			}
-			
+
 			$session->setMessageData($message);
 			header('Location: '.preg_replace('&/{2,}&', '/', $loginURL));
 			exit;
